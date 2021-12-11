@@ -53,8 +53,39 @@ async function get() {
     }
     return results;
 }
-cron.schedule('0 7 * * *', () => {
-    (async () => {
+
+async function output(finalResult) {
+    let i = Math.floor(Math.random() * finalResult.length)
+    try {
+        if(JSON.parse(fs.readFileSync('blacklist.json', 'utf8')).indexOf(finalResult[i].name) >= 0) {
+            i = Math.floor(Math.random() * finalResult.length)
+            output(finalResult)
+        }else{
+            let random = Math.floor(Math.random() * phrases.length)
+            const { data } = await axios.get(`https://api.npmjs.org/downloads/point/${laterDate}:${startDate}/${finalResult[i].name}`);
+            const percent = Math.floor((finalResult[i].downloads * 100 / data.downloads))
+            if(percent > 85 && finalResult[i].downloads >= 1000 && finalResult[i].downloads < 3000000) {
+                if(finalResult[i].date.split("T")[0].split("-")[0] >= 2020) {
+                    hours = phraseHours.getHours();
+                    bot.sendMessage(Channelid, `${phrases[random]}\n\n☑ Название: ${finalResult[i].name}\n📋 Описание: ${finalResult[i].descr}\n📊 Скачивания за неделю: ${finalResult[i].downloads}\n⚡ Ссылка: ${finalResult[i].link}\n📅 Дата создания: ${finalResult[i].date.split("T")[0]}`)
+                    let temp = JSON.parse(fs.readFileSync('blacklist.json', 'utf8'))
+                    temp.push(finalResult[i].name)
+                    fs.writeFileSync('blacklist.json', JSON.stringify(temp))
+                }else{
+                    i = Math.floor(Math.random() * finalResult.length)
+                    output(finalResult)
+                }
+            }else{
+                i = Math.floor(Math.random() * finalResult.length)
+                output(finalResult)
+            }
+        }
+    }catch (e) {
+        output(finalResult)
+    }
+}
+
+cron.schedule('*/1 * * * *', async () => {
         console.log(`Report by ${endDate}`)
         const content = await get();
 
@@ -72,39 +103,8 @@ cron.schedule('0 7 * * *', () => {
             }))),
         );
 
-        let finalresult = result.flat().sort((a,b) =>
+        let finalResult = result.flat().sort((a,b) =>
             new Date(b.date) - new Date(a.date));
 
-        let i = Math.floor(Math.random() * finalresult.length)
-        async function output() {
-            try {
-                if(JSON.parse(fs.readFileSync('blacklist.json', 'utf8')).indexOf(finalresult[i].name) >= 0) {
-                    i = Math.floor(Math.random() * finalresult.length)
-                    output()
-                }else{
-                    let random = Math.floor(Math.random() * phrases.length)
-                    const { data } = await axios.get(`https://api.npmjs.org/downloads/point/${laterDate}:${startDate}/${finalresult[i].name}`);
-                    const percent = Math.floor((finalresult[i].downloads * 100 / data.downloads))
-                    if(percent > 90 && finalresult[i].downloads >= 1000 && finalresult[i].downloads < 2000000) {
-                        if(finalresult[i].date.split("T")[0].split("-")[0] >= 2020) {
-                            hours = phraseHours.getHours();
-                            bot.sendMessage(Channelid, `${phrases[random]}\n\n☑ Название: ${finalresult[i].name}\n📋 Описание: ${finalresult[i].descr}\n📊 Скачивания за неделю: ${finalresult[i].downloads}\n⚡ Ссылка: ${finalresult[i].link}\n📅 Дата создания: ${finalresult[i].date.split("T")[0]}`)
-                            let temp = JSON.parse(fs.readFileSync('blacklist.json', 'utf8'))
-                            temp.push(finalresult[i].name)
-                            fs.writeFileSync('blacklist.json', JSON.stringify(temp))
-                        }else{
-                            i = Math.floor(Math.random() * finalresult.length)
-                            output()
-                        }
-                    }else{
-                        i = Math.floor(Math.random() * finalresult.length)
-                        output()
-                    }
-                }
-            }catch (e) {
-                output()
-            }
-        }
-        output()
-    })();
+        output(finalResult)
 });
