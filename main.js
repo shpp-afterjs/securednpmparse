@@ -85,7 +85,7 @@ async function output(finalResult) {
     }
 }
 
-cron.schedule('*/1 * * * *', async () => {
+cron.schedule('0 7 * * *', async () => {
         console.log(`Report by ${endDate}`)
         const content = await get();
 
