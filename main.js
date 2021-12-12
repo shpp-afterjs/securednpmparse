@@ -2,6 +2,9 @@ const axiosClassic = require('axios');
 const rateLimit  = require('axios-rate-limit');
 require('dotenv').config()
 
+const express = require('express')
+const app = express()
+
 const axios = rateLimit(axiosClassic.create(), { maxRPS: 50 })
 const date = require('date-and-time');
 const TelegramBot = require('node-telegram-bot-api');
@@ -11,11 +14,11 @@ const cron = require('node-cron');
 const token = process.env.TOKEN;
 const bot = new TelegramBot(token, {polling: true});
 
-let phraseHours = new Date();
-let hours = phraseHours.getHours();
-
 const categories = ['front-end', 'backend', 'cli', 'documentation', 'css', 'testing', 'iot', 'coverage', 'mobile', 'framework', 'robotics', 'math'];
 const Channelid = process.env.ID;
+
+let phraseHours = new Date();
+let hours = phraseHours.getHours();
 
 const phrases = [
     'А вот и новый пакет!',
@@ -54,57 +57,84 @@ async function get() {
     return results;
 }
 
-async function output(finalResult) {
+let serverData = {
+    name: "undefined",
+    description: "undefined",
+    downloads: "undefined",
+    date: "undefined",
+    link: "undefined"
+}
+
+async function output(finalResult, hours) {
     let i = Math.floor(Math.random() * finalResult.length)
     try {
         if(JSON.parse(fs.readFileSync('blacklist.json', 'utf8')).indexOf(finalResult[i].name) >= 0) {
             i = Math.floor(Math.random() * finalResult.length)
-            output(finalResult)
+            await output(finalResult)
         }else{
             let random = Math.floor(Math.random() * phrases.length)
             const { data } = await axios.get(`https://api.npmjs.org/downloads/point/${laterDate}:${startDate}/${finalResult[i].name}`);
             const percent = Math.floor((finalResult[i].downloads * 100 / data.downloads))
             if(percent > 85 && finalResult[i].downloads >= 1000 && finalResult[i].downloads < 3000000) {
                 if(finalResult[i].date.split("T")[0].split("-")[0] >= 2020) {
-                    hours = phraseHours.getHours();
                     bot.sendMessage(Channelid, `${phrases[random]}\n\n☑ Название: ${finalResult[i].name}\n📋 Описание: ${finalResult[i].descr}\n📊 Скачивания за неделю: ${finalResult[i].downloads}\n⚡ Ссылка: ${finalResult[i].link}\n📅 Дата создания: ${finalResult[i].date.split("T")[0]}`)
                     let temp = JSON.parse(fs.readFileSync('blacklist.json', 'utf8'))
                     temp.push(finalResult[i].name)
+                    serverData = {
+                        name: finalResult[i].name,
+                        description: finalResult[i].descr,
+                        downloads: finalResult[i].downloads,
+                        date: finalResult[i].date.split("T")[0],
+                        link: finalResult[i].link
+                    }
                     fs.writeFileSync('blacklist.json', JSON.stringify(temp))
                 }else{
                     i = Math.floor(Math.random() * finalResult.length)
-                    output(finalResult)
+                    await output(finalResult)
                 }
             }else{
                 i = Math.floor(Math.random() * finalResult.length)
-                output(finalResult)
+                await output(finalResult)
             }
         }
     }catch (e) {
-        output(finalResult)
+        await output(finalResult)
     }
 }
 
-cron.schedule('0 7 * * *', async () => {
-        console.log(`Report by ${endDate}`)
-        const content = await get();
+cron.schedule('0 9 * * *', async () => {
+    console.log(`Report by ${endDate}`)
+    const content = await get();
 
-        const result = await Promise.all(
-            content.map(async (item) => Promise.all(item.map(async (obj) => {
-                const { data } = await axios.get(`https://api.npmjs.org/downloads/point/${startDate}:${endDate}/${obj.package.name}`);
+    let phraseHours = new Date();
+    let hours = phraseHours.getHours();
 
-                return {
-                    name: obj.package.name,
-                    link: obj.package.links.npm,
-                    descr: obj.package.description,
-                    date: obj.package.date,
-                    downloads: data.downloads,
-                };
-            }))),
-        );
+    const result = await Promise.all(
+        content.map(async (item) => Promise.all(item.map(async (obj) => {
+            const { data } = await axios.get(`https://api.npmjs.org/downloads/point/${startDate}:${endDate}/${obj.package.name}`);
 
-        let finalResult = result.flat().sort((a,b) =>
-            new Date(b.date) - new Date(a.date));
+            return {
+                name: obj.package.name,
+                link: obj.package.links.npm,
+                descr: obj.package.description,
+                date: obj.package.date,
+                downloads: data.downloads,
+            };
+        }))),
+    );
 
-        output(finalResult)
+    let finalResult = result.flat().sort((a,b) =>
+        new Date(b.date) - new Date(a.date));
+
+    await output(finalResult, hours)
+    console.log(serverData)
+}, {
+    timezone: "Europe/Kiev"
 });
+
+app.get('/',(req, res) => {
+    res.send(serverData)
+})
+
+app.listen(3000)
+
