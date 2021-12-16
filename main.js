@@ -68,34 +68,34 @@ let serverData = {
 };
 
 async function output(finalResult, hours) {
-  let i = Math.floor(Math.random() * finalResult.length);
+  let PackageNumber = Math.floor(Math.random() * finalResult.length);
   try {
-    if (JSON.parse(fs.readFileSync('blacklist.json', 'utf8')).indexOf(finalResult[i].name) >= 0) {
-      i = Math.floor(Math.random() * finalResult.length);
+    if (JSON.parse(fs.readFileSync('blacklist.json', 'utf8')).indexOf(finalResult[PackageNumber].name) >= 0) {
+      PackageNumber = Math.floor(Math.random() * finalResult.length);
       await output(finalResult);
     } else {
       const random = Math.floor(Math.random() * phrases.length);
-      const { data } = await axios.get(`https://api.npmjs.org/downloads/point/${laterDate}:${startDate}/${finalResult[i].name}`);
-      const percent = Math.floor((finalResult[i].downloads * 100 / data.downloads));
-      if (percent > 85 && finalResult[i].downloads >= 1000 && finalResult[i].downloads < 3000000) {
-        if (finalResult[i].date.split('T')[0].split('-')[0] >= 2020) {
-          bot.sendMessage(Channelid, `${phrases[random]}\n\n☑ Название: ${finalResult[i].name}\n📋 Описание: ${finalResult[i].descr}\n📊 Скачивания за неделю: ${finalResult[i].downloads}\n⚡ Ссылка: ${finalResult[i].link}\n📅 Дата создания: ${finalResult[i].date.split('T')[0]}`);
+      const { data } = await axios.get(`https://api.npmjs.org/downloads/point/${laterDate}:${startDate}/${finalResult[PackageNumber].name}`);
+      const percent = Math.floor((finalResult[PackageNumber].downloads * 100 / data.downloads));
+      if (percent > 85 && finalResult[PackageNumber].downloads >= 1000 && finalResult[PackageNumber].downloads < 3000000) {
+        if (finalResult[PackageNumber].date.split('T')[0].split('-')[0] >= 2020) {
+          bot.sendMessage(Channelid, `${phrases[random]}\n\n☑ Название: ${finalResult[PackageNumber].name}\n📋 Описание: ${finalResult[PackageNumber].descr}\n📊 Скачивания за неделю: ${finalResult[PackageNumber].downloads}\n⚡ Ссылка: ${finalResult[PackageNumber].link}\n📅 Дата создания: ${finalResult[PackageNumber].date.split('T')[0]}`);
           const temp = JSON.parse(fs.readFileSync('blacklist.json', 'utf8'));
-          temp.push(finalResult[i].name);
+          temp.push(finalResult[PackageNumber].name);
           serverData = {
-            name: finalResult[i].name,
-            description: finalResult[i].descr,
-            downloads: finalResult[i].downloads,
-            date: finalResult[i].date.split('T')[0],
-            link: finalResult[i].link,
+            name: finalResult[PackageNumber].name,
+            description: finalResult[PackageNumber].descr,
+            downloads: finalResult[PackageNumber].downloads,
+            date: finalResult[PackageNumber].date.split('T')[0],
+            link: finalResult[PackageNumber].link,
           };
           fs.writeFileSync('blacklist.json', JSON.stringify(temp));
         } else {
-          i = Math.floor(Math.random() * finalResult.length);
+          PackageNumber = Math.floor(Math.random() * finalResult.length);
           await output(finalResult);
         }
       } else {
-        i = Math.floor(Math.random() * finalResult.length);
+        PackageNumber = Math.floor(Math.random() * finalResult.length);
         await output(finalResult);
       }
     }
