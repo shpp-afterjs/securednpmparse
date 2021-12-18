@@ -58,13 +58,7 @@ async function get() {
     return results;
 }
 
-let serverData = {
-  name: 'moleculer',
-  description: 'Fast & powerful microservices framework for Node.JS',
-  downloads: 30245,
-  date: '2021-10-20',
-  link: 'https://www.npmjs.com/package/moleculer'
-}
+let serverData = null;
 
 async function output(finalResult, hours) {
   let PackageNumber = Math.floor(Math.random() * finalResult.length);
@@ -136,7 +130,9 @@ cron.schedule('0 9 * * *', async () => {
 app.use(cors())
 
 app.get('/',(req, res) => {
-    res.send(serverData)
+    res.send({
+        result: serverData ? serverData : null;
+    })
 })
 
 app.listen(3000)
