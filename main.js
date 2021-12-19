@@ -1,26 +1,25 @@
-const axiosClassic = require('axios');
-const rateLimit = require('axios-rate-limit');
 require('dotenv').config();
 
+const fs = require('fs');
+const cors = require('cors');
+const cron = require('node-cron');
 const express = require('express');
+const axiosClassic = require('axios');
+const date = require('date-and-time');
+const rateLimit = require('axios-rate-limit');
+const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
-const cors = require('cors');
 
 const axios = rateLimit(axiosClassic.create(), { maxRPS: 50 });
-const date = require('date-and-time');
-const TelegramBot = require('node-telegram-bot-api');
-const fs = require('fs');
-const cron = require('node-cron');
 
 const token = process.env.TOKEN;
-const bot = new TelegramBot(token, { polling: true });
-
-const categories = ['front-end', 'backend', 'cli', 'documentation', 'css', 'testing', 'iot', 'coverage', 'mobile', 'framework', 'robotics', 'math'];
 const ChannelId = process.env.ID;
 
-let hours;
+const bot = new TelegramBot(token, { polling: true });
 
+let hours;
+const categories = ['front-end', 'backend', 'cli', 'documentation', 'css', 'testing', 'iot', 'coverage', 'mobile', 'framework', 'robotics', 'math'];
 const phrases = [
   'А вот и новый пакет!',
   'Какая неожиданность, ведь вышел новый пакет!',
@@ -37,25 +36,19 @@ const phrases = [
   'А кто тут у нас ещё пакет не чекнул, а?',
 ];
 
-let later;
-let start;
-let end;
-
-let laterDate;
-let endDate; // date now
-let startDate; // week ago
-
 async function updateDate() {
-  later = new Date();
-  start = new Date();
-  end = new Date();
+  const later = new Date();
+  const start = new Date();
+  const end = new Date();
 
   start.setDate(start.getDate() - 7);
   later.setDate(later.getDate() - 14);
 
-  laterDate = date.format(later, 'YYYY-MM-DD');
-  endDate = date.format(end, 'YYYY-MM-DD');
-  startDate = date.format(start, 'YYYY-MM-DD');
+  return {
+    laterDate: date.format(later, 'YYYY-MM-DD'),
+    endDate: date.format(end, 'YYYY-MM-DD'),
+    startDate: date.format(start, 'YYYY-MM-DD'),
+  };
 }
 
 async function get() {
@@ -70,11 +63,12 @@ async function get() {
 
 let serverData = null;
 
-async function output(finalResult, hours) {
-  await updateDate();
+async function output(finalResult) {
+  const { laterDate, startDate } = await updateDate();
+
   let PackageNumber = Math.floor(Math.random() * finalResult.length);
   const {
-    name, link, descr, date, downloads,
+    name, link, description, date, downloads,
   } = finalResult[PackageNumber];
 
   const random = Math.floor(Math.random() * phrases.length);
@@ -83,16 +77,19 @@ async function output(finalResult, hours) {
 
   try {
     if (JSON.parse(fs.readFileSync('blacklist.json', 'utf8')).indexOf(name) === -1 && percent > 85 && downloads >= 1000 && downloads < 3000000 && date.split('T')[0].split('-')[0] >= 2020) {
-      bot.sendMessage(ChannelId, `${phrases[random]}\n\n☑ Название: ${name}\n📋 Описание: ${descr}\n📊 Скачивания за неделю: ${downloads}\n⚡ Ссылка: ${link}\n📅 Дата создания: ${date.split('T')[0]}`);
       const temp = JSON.parse(fs.readFileSync('blacklist.json', 'utf8'));
       temp.push(name);
+
+      bot.sendMessage(ChannelId, `${phrases[random]}\n\n☑ Название: ${name}\n📋 Описание: ${description}\n📊 Скачивания за неделю: ${downloads}\n⚡ Ссылка: ${link}\n📅 Дата создания: ${date.split('T')[0]}`);
+
       serverData = {
         name,
-        description: descr,
+        description,
         downloads,
         date: date.split('T')[0],
         link,
       };
+
       fs.writeFileSync('blacklist.json', JSON.stringify(temp));
     } else {
       PackageNumber = Math.floor(Math.random() * finalResult.length);
@@ -110,17 +107,19 @@ cron.schedule('*/1 * * * *', async () => {
   const phraseHours = new Date();
   hours = phraseHours.getHours();
 
-  await updateDate();
+  const { endDate, startDate } = await updateDate();
 
   const result = await Promise.all(
-    content.map(async (item) => Promise.all(item.map(async (obj) => {
-      const { data } = await axios.get(`https://api.npmjs.org/downloads/point/${startDate}:${endDate}/${obj.package.name}`);
+    content.map(async (item) => Promise.all(item.map(async ({
+      name, description, date, links,
+    }) => {
+      const { data } = await axios.get(`https://api.npmjs.org/downloads/point/${startDate}:${endDate}/${name}`);
 
       return {
-        name: obj.package.name,
-        link: obj.package.links.npm,
-        descr: obj.package.description,
-        date: obj.package.date,
+        name,
+        description,
+        date,
+        link: links.npm,
         downloads: data.downloads,
       };
     }))),
